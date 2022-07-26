@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: containerd-blkio-config-reloader
+  name: containerd-blkio-config-reloader
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: containerd-blkio-config-reloader
+  template:
+    metadata:
+      labels:
+        app: containerd-blkio-config-reloader
+    spec:
+      containers:
+      - env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        args:
+        - -s=/configs
+        - -d=/etc/containerd/
+        command:
+        - /blk-config-reloader
+        image: zengxu/blk-config-reloader
+        imagePullPolicy: Always
+        name: reloader
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /configs
+          name: cm
+        - mountPath: /etc/containerd
+          name: containerd
+        - mountPath: /run/systemd/system
+          name: systemd
+        - mountPath: /var/run/dbus/system_bus_socket
+          name: systemd-sock
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 10
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /etc/containerd
+          type: ""
+        name: containerd
+      - name: systemd
+        hostPath:
+          path: /run/systemd/system
+          type: ""
+      - name: systemd-sock
+        hostPath:
+          path: /var/run/dbus/system_bus_socket
+          type: ""
+      - configMap:
+          defaultMode: 0660
+          name: containerd-blkio
+        name: cm
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 20%
+      maxUnavailable: 20%
+    type: RollingUpdate
+---
+apiVersion: v1
+data:
+  default: |-
+    Classes:
+      LowPrioThrottled:
+      - Devices:
+          - /dev/sdb
+          - /dev/sda
+        ThrottleReadBps: 50M
+        ThrottleWriteBps: 10M
+kind: ConfigMap
+metadata:
+  name: containerd-blkio
+  namespace: kube-system
+

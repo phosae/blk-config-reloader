@@ -17,7 +17,7 @@ import (
 
 var configDir = flag.String("d", ".", "containerd config directory")
 var srcDir = flag.String("s", ".", "source config directory")
-var node = flag.String("s", "", "node name")
+var node = flag.String("n", "", "node name")
 
 func main() {
 	flag.Parse()
@@ -27,7 +27,10 @@ func main() {
 	}
 	stop := SetupSignalHandler()
 
+	sync()
+
 	tik := time.NewTicker(15 * time.Second)
+	defer tik.Stop()
 	for {
 		select {
 		case <-tik.C:
@@ -41,7 +44,9 @@ func main() {
 func sync() {
 	blkfile := *srcDir + "/default"
 	if *node != "" {
-		blkfile = *srcDir + "/" + *node
+		if _, err := os.Stat(*srcDir + "/" + *node); err == nil {
+			blkfile = *srcDir + "/" + *node
+		}
 	}
 
 	if _, err := os.Stat(blkfile); err != nil {
@@ -121,8 +126,15 @@ func ensureContainerdSrvConfig(dir string) {
 		if err != nil {
 			panic(err)
 		}
-		cmd := "jsonpatch config.json.tmp patch.json.tmp | yj -jt -i > config.toml.tmp && mv config.toml.tmp config.toml && rm *.tmp"
-		fmt.Println(exec.Command("bash", "-c", cmd).Run())
+		cmdStr := "jsonpatch " + dir + "/config.json.tmp " + dir + "/patch.json.tmp | yj -jt -i > " + dir + "/config.toml.tmp && mv " + dir + "/config.toml.tmp " + dir + "/config.toml && " + "rm " + dir + "*.tmp"
+		replaceCmd := exec.Command("bash", "-c", cmdStr)
+		var stdErr bytes.Buffer
+		replaceCmd.Stderr = &stdErr
+		err = replaceCmd.Run()
+		if err != nil {
+			fmt.Printf("err update config.toml:%v\n", err)
+			fmt.Println(stdErr.String())
+		}
 	} else {
 		fmt.Println("plugins.\"io.containerd.service.v1.tasks-service\" already specified, skip blkio.yaml path patch")
 	}

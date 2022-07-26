@@ -92,6 +92,10 @@ func ensureContainerdSrvConfig(dir string) {
 		panic(err)
 	}
 
+	defer func() {
+		exec.Command("bash", "-c", "rm "+dir+"*.tmp").Run()
+	}()
+
 	var stderr bytes.Buffer
 	yj := exec.Command("yj", "-tj")
 	yj.Stdin = f
@@ -126,7 +130,7 @@ func ensureContainerdSrvConfig(dir string) {
 		if err != nil {
 			panic(err)
 		}
-		cmdStr := "jsonpatch " + dir + "/config.json.tmp " + dir + "/patch.json.tmp | yj -jt -i > " + dir + "/config.toml.tmp && mv " + dir + "/config.toml.tmp " + dir + "/config.toml && " + "rm " + dir + "*.tmp"
+		cmdStr := "jsonpatch " + dir + "/config.json.tmp " + dir + "/patch.json.tmp | yj -jt -i > " + dir + "/config.toml.tmp && mv " + dir + "/config.toml.tmp " + dir + "/config.toml"
 		replaceCmd := exec.Command("bash", "-c", cmdStr)
 		var stdErr bytes.Buffer
 		replaceCmd.Stderr = &stdErr

@@ -73,6 +73,8 @@ spec:
       maxUnavailable: 20%
     type: RollingUpdate
 ---
+# https://github.com/intel/goresctrl/blob/main/doc/blockio.md#configuration
+# https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md
 apiVersion: v1
 data:
   default: |-
